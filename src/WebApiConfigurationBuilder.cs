@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.Dispatcher;
 using ScriptCs.Contracts;
@@ -12,9 +10,9 @@ namespace ScriptCs.Hosting.WebApi
 {
     public class WebApiConfigurationBuilder
     {
-        private HttpConfiguration _configuration;
+        private readonly HttpConfiguration _configuration;
         private readonly string _scriptsPath;
-        private IList<Func<string, ScriptClass>> _typeStrategies; 
+        private readonly IList<Func<string, ScriptClass>> _typeStrategies; 
 
         public WebApiConfigurationBuilder(HttpConfiguration configuration, string webBin)
         {
@@ -32,11 +30,16 @@ namespace ScriptCs.Hosting.WebApi
         public HttpConfiguration Build()
         {
             IList<Func<string, ScriptClass>> typeStrategies = new List<Func<string, ScriptClass>>(_typeStrategies);
-            var runtime = new ScriptRuntimeBuilder().
-                FilePreProcessor<WebApiFilePreProcessor>().Build();
-            runtime.Initialize();
 
-            var services = runtime.GetScriptServices();
+            var console = new ScriptConsole();
+
+            var configurator = new LoggerConfigurator(LogLevel.Debug);
+            configurator.Configure(console);
+            var logger = configurator.GetLogger();
+            
+            var services = new ScriptServicesBuilder(console, logger)
+                .FilePreProcessor<WebApiFilePreProcessor>().Build();
+
             var preProcessor = (WebApiFilePreProcessor) services.FilePreProcessor;
             typeStrategies.Add(ControllerStategy);
             preProcessor.SetClassStrategies(typeStrategies);
@@ -48,9 +51,15 @@ namespace ScriptCs.Hosting.WebApi
         private void ProcessScripts(ScriptServices services)
         {
             IList<Type> controllers = new List<Type>();
-            var packs = services.ScriptPackResolver.GetPacks().Union(new List<IScriptPack>() { new WebApiScriptHack() });
-            services.Executor.Initialize(services.AssemblyResolver.GetAssemblyPaths(_scriptsPath), packs);
-            var scripts = services.FileSystem.EnumerateFiles(_scriptsPath, "*.csx", SearchOption.TopDirectoryOnly);
+            var packs = services.ScriptPackResolver.GetPacks().Union(new List<IScriptPack> {new WebApiScriptHack()});
+            var scripts = services.FileSystem.EnumerateFiles(_scriptsPath, "*.csx", SearchOption.TopDirectoryOnly).ToList();
+
+            var assemblyPaths = scripts
+                .SelectMany(script => services.AssemblyResolver.GetAssemblyPaths(_scriptsPath, Path.GetFileName(script)))
+                .Distinct();
+            
+            services.Executor.Initialize(assemblyPaths, packs);
+            
             foreach (var script in scripts)
             {
                 var result = services.Executor.Execute(script);

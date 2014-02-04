@@ -2,15 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web.Http.Dispatcher;
 
 namespace ScriptCs.Hosting.WebApi
 {
     public class AssemblyControllerTypeResolver : DefaultHttpControllerTypeResolver
     {
-        private ICollection<Type> _controllerTypes;
+        private readonly ICollection<Type> _controllerTypes;
 
         internal AssemblyControllerTypeResolver(ICollection<Type> controllerTypes)
         {
