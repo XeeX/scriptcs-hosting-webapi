@@ -40,6 +40,8 @@ namespace ScriptCs.Hosting.WebApi
             var services = new ScriptServicesBuilder(console, logger)
                 .FilePreProcessor<WebApiFilePreProcessor>().Build();
 
+            services.FileSystem.CurrentDirectory = _scriptsPath;
+            
             var preProcessor = (WebApiFilePreProcessor) services.FilePreProcessor;
             typeStrategies.Add(ControllerStategy);
             preProcessor.SetClassStrategies(typeStrategies);
